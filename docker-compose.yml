@@ -1,4 +1,4 @@
-version: '3.10'
+version: '5.10'
 
 services:
   db:
@@ -13,41 +13,43 @@ services:
       - dbgpt-myql-db:/var/lib/mysql
       - ./docker/examples/my.cnf:/etc/my.cnf
       - ./docker/examples/sqls:/docker-entrypoint-initdb.d
-      - ./assets/schema/dbgpt.sql:/docker-entrypoint-initdb.d/dbgpt.sql
+      - ./assets/schema/knowledge_management.sql:/docker-entrypoint-initdb.d/knowledge_management.sql
     restart: unless-stopped
     networks:
       - dbgptnet
   webserver:
     image: eosphorosai/dbgpt:latest
-    command: python3 dbgpt/app/dbgpt_server.py
+    command: bash start.sh
     environment:
       - LOCAL_DB_HOST=db
       - LOCAL_DB_PASSWORD=aa123456
       - ALLOWLISTED_PLUGINS=db_dashboard
-      - LLM_MODEL=glm-4-9b-chat
+      - EMBEDDING_MODEL=proxy_openai
+      - proxy_openai_proxy_server_url=https://api.gpt.ge/v1
+      - proxy_openai_proxy_api_key=sk-ggJ4hWwUXHfDJUOB09Ac458b36544aBe85AaEcE7Ec97227c
+      - proxy_openai_proxy_backend=text-embedding-ada-002
+      - LLM_MODEL=chatgpt_proxyllm
+      - PROXY_API_KEY=sk-ggJ4hWwUXHfDJUOB09Ac458b36544aBe85AaEcE7Ec97227c
+      - PROXY_SERVER_URL=https://api.gpt.ge/v1/chat/completions
     depends_on:
       - db
     volumes:
-      - /data:/data
-      # Please modify it to your own model directory
-      - /data/models:/app/models
+      - ./scripts/start.sh:/app/start.sh
+      - ./data:/data
+      # 请将其修改为您自己的模型目录
+      - ./models:/app/models
       - dbgpt-data:/app/pilot/data
       - dbgpt-message:/app/pilot/message
     env_file:
       - .env.template
     ports:
-      - 5670:5670/tcp
-    # webserver may be failed, it must wait all sqls in /docker-entrypoint-initdb.d execute finish.
+      - 5000:5000/tcp
+    # webserver可能会失败，它必须等到/docker-entrypoint-initdb.d中的所有sql执行完成。
     restart: unless-stopped
     networks:
       - dbgptnet
     ipc: host
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
+
 volumes:
   dbgpt-myql-db:
   dbgpt-data:
